@@ -29,16 +29,9 @@ class webApp:
         respuesta = '<html><body><h1>It Works!</h1></body></html>'
         return ("200 OK", respuesta)
 
-    def numero(self, request):
-        num = int(request.split(' ')[1][1:])
-        return num
-
-    def suma(self, num, num2):
-        suma = num + num2
-        return suma
-
 
     def __init__(self, hostname, port):
+        esPrimer = True
         """Initialize the web application."""
         mySocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Let the port be reused if no process is actually using it
@@ -56,25 +49,54 @@ class webApp:
         suma = None;
 
         while True:
-            print 'Waiting for connections'
+            print ('Waiting for connections')
             (recvSocket, address) = mySocket.accept()
-            print 'Request received:'
-            peticion = recvSocket.recv(2048)
-            print peticion
+            print ('Request received:')
+            request = recvSocket.recv(2048)
+            print (request)
             parsedRequest = self.parse(request)
             (returnCode, htmlAnswer) = self.process(parsedRequest)
-            if(num == None):
-                num = self.numero(request)
-            elif (num != None):
-                num2 = self.numero(request)
-                resultado = self.suma(num, num2)
-                num = resultado
 
-            print 'Answering back...'
+            print ('Answering back...')
 
-            recvSocket.send("HTTP/1.1" + returnCode +"\r\n\r\n" + htmlAnswer + "\r\n")
+            recvSocket.send(bytes("HTTP/1.1" + returnCode + "\r\n\r\n" + htmlAnswer + "\r\n",'UTF-8'))
             recvSocket.close()
 
 
+class sumadorApp(webApp):
+    def parse(self, request):
+        try:
+            num = int(request.split()[1][1:])
+            valido = True
+        except ValueError:
+            valido = False
+            num = 0
+        return num, valido
+
+    def process(self, parsedRequest):
+        num, valido = parsedRequest
+        if not valido:
+                respuesta = '<html><body><h1>Solo manejo enteros</h1></body></html>'
+                return ("200 OK", respuesta)
+        if self.esPrimer:
+            self.primernum = num
+            self.esPrimer = False
+            respuesta = '<html><body><h1>Dame otro</h1></body></html>'
+            return ("200 OK", respuesta)
+        else:
+            segundonum = num
+            suma = self.primernum + segundonum
+            self.esPrimer = True
+            return ("HTTP/1.1 200 OK\r\n\r\n",
+                    "<html><body><h1> " + str(suma) +
+                    "</h1></body></html>" + "\r\n")
+
+
+
+    def __init__(self, hostname, port):
+        self.esPrimer = True
+        super(sumadorApp,self).__init__(hostname,port)
+
+
 if __name__ == "__main__":
-    testWebApp = webApp("localhost", 1235)
+    testWebApp = sumadorApp("localhost", 1235)
